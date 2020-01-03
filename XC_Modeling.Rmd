@@ -1,0 +1,214 @@
+---
+title: "XC Modeling"
+author: "Samuel Ivanecky"
+date: "11/21/2019"
+output: html_document
+---
+### SETUP
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+### LOAD DATA
+```{r}
+setwd("~/Desktop/XC")
+men = read.csv("MensXC.csv")
+women = read.csv("WomensXC.csv")
+```
+
+### VARIABLE MANIPULATION
+```{r}
+# Create gender column
+men$gender = "M"
+women$gender = "F"
+# Rename columns
+names(women)[1] = "Place"
+names(women)[2] = "School"
+# Combine
+df = rbind(men, women)
+df = df[, c(1,2,5:14)]
+# Convert everything to numeric
+df$Score = as.numeric(df$Score)
+df$X1 = as.numeric(df$X1)
+df$X2 = as.numeric(df$X2)
+df$X3 = as.numeric(df$X3)
+df$X4 = as.numeric(df$X4)
+df$X5 = as.numeric(df$X5)
+# Subset data (remove 6-7 runners)
+df = df[, c(1:8, 11, 12)]
+```
+
+### GROUP BY TEAM PLACE AND LOOK AT AVERAGE RUNNER PLACINGS
+```{r}
+avg_runners = df %>%
+  group_by(Place) %>%
+  summarise(R1 = round(mean(X1, na.rm = T)),
+            R2 = round(mean(X2, na.rm = T)),
+            R3 = round(mean(X3, na.rm = T)),
+            R4 = round(mean(X4, na.rm = T)),
+            R5 = round(mean(X5, na.rm = T)))
+
+# Calculate spread
+avg_runners$spread = avg_runners$R5 - avg_runners$R1
+```
+
+### WRTIE TO CSV
+```{r}
+#write.csv(avg_runners, "avg_runners.csv")
+```
+
+### SPLIT BACK INTO GENDERS
+```{r}
+men = df %>%
+  filter(gender == 'M' & Place < 5)
+women = df %>%
+  filter(gender == 'F' & Place < 5)
+```
+
+### PODIUM FINISHES BY SCHOOL
+```{r}
+# Counts of schools by gender
+ggplot(men, aes(School, fill = School)) + geom_bar(stat = "count") + ggtitle("Men")
+ggplot(women, aes(School, fill = School)) + geom_bar(stat = "count") + ggtitle("Women")
+```
+
+### SUMMARY OF WHERE RUNNERS ON FIRST PLACE TEAMS FINISH
+```{r}
+# Subset to winning teams
+winners = df %>%
+  filter(Place == 1)
+# Summaries of runners
+summary(winners$X1)
+summary(winners$X2)
+summary(winners$X3)
+summary(winners$X4)
+summary(winners$X5)
+```
+
+# CALCULATE SPREAD
+```{r}
+df$spread = df$X5 - df$X1
+```
+
+### LOOK AT DISTRIBUTION OF SPREAD BY TEAM PLACE
+```{r}
+df$Place = as.factor(df$Place)
+ggplot(df, aes(df$Place, df$spread)) + geom_boxplot() + ggtitle("Distribution of Spreads by Team Place") + labs(x = "Team Place", y = "Spread")
+```
+
+### CALCULATE GAPS BETWEEN RUNNERS
+```{r}
+# Get the gaps between each runner
+df = df %>%
+  mutate(
+    g1 = X2 - X1, 
+    g2 = X3 - X2, 
+    g3 = X4 - X3,
+    g4 = X5 - X4
+  )
+```
+
+### GROUP TO AVG GAP LEVEL
+```{r}
+# Group down to the average level
+avg_runners_gap = df %>%
+  group_by(Place) %>%
+  summarise(
+    GAP1 = round(median(g1, na.rm = T)),
+    GAP2 = round(median(g2, na.rm = T)),
+    GAP3 = round(median(g3, na.rm = T)),
+    GAP4 = round(median(g4, na.rm = T))
+  )
+
+# Convert to numeric
+avg_runners_gap$Place = as.numeric(avg_runners_gap$Place)
+```
+
+### WRITE TO CSV
+```{r}
+write.csv(avg_runners_gap, "avg_gap.csv")
+```
+
+### CORRELATION TESTS
+```{r}
+# Attach data
+attach(avg_runners_gap)
+
+# Check correlations
+cor.test(Place, GAP1)
+cor.test(Place, GAP2)
+cor.test(Place, GAP3)
+cor.test(Place, GAP4)
+```
+
+### BREAK OUT TOP 10 TEAMS
+```{r}
+df$Place = as.numeric(df$Place)
+
+# Subset data
+top = df %>%
+  filter(Place <= 8)
+
+# Label podium teams
+top = top %>%
+  mutate(podium = 
+           case_when(
+             Place <= 4 ~ 'Y',
+             T ~ 'N'
+           ))
+```
+
+### LOOK AT AVGS OF PODIUM VS NON-PODIUM
+```{r}
+top_grp = top %>%
+  group_by(podium) %>%
+  summarise(
+     r1 = round(median(X1)),
+     r2 = round(median(X2)),
+     r3 = round(median(X3)),
+     r4 = round(median(X4)),
+     r5 = round(median(X5)),
+     g1 = round(median(g1)),
+     g2 = round(median(g2)),
+     g3 = round(median(g3)),
+     g4 = round(median(g4)),
+  )
+```
+
+```{r}
+# Quick look at worst teams
+worst = df %>%
+  filter(Place == 31)
+
+summary(worst$Score)
+```
+
+### AVG SCORES BY PLACE
+```{r}
+avg_scores = df %>%
+  group_by(Place) %>%
+  summarise(Avg_Score = mean(Score, na.rm = T), Med_Score = median(Score))
+```
+
+```{r}
+write.csv(avg_scores, "avg_scores.csv")
+```
+
+```{r}
+# Plot distributions of scores by team place
+ggplot(df, aes(as.factor(Place), Score)) + geom_boxplot() + ggtitle("Distributions of Scores by Team Finish") + labs(x = "Team Finish", y = "Team Score")
+```
+
+###########################
+### DRAFT RECAP CODE
+###########################
+### LOAD IN DATA
+```{r}
+ind = read.csv("Draft Results - Ind.csv")
+team = read.csv("Draft Results - Team.csv")
+```
+
+
+
