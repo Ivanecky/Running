@@ -1,7 +1,7 @@
 ---
-title: "D2 Power Rankings"
+title: "D1 Power Rankings"
 author: "Samuel Ivanecky"
-date: "1/9/2020"
+date: "1/11/2020"
 output: html_document
 ---
 
@@ -79,15 +79,14 @@ readPerfList = function(url){
     ))
   
   # Subset to Top 40 per event
-  top40 = results %>%
-  filter(PLACE <= 40) %>%
+  results = results %>%
   filter(EVENT %in% c('800m', 'Mile', '3000m', '5000m')) %>%
   mutate(
-    PTS = 41 - PLACE
+    PTS = 101 - PLACE
   )
   
   # Group to one line per runner
-  pts_grp = top40 %>%
+  pts_grp = results %>%
   group_by(ATHLETE) %>%
   summarise(TEAM = max(TEAM), YEAR = max(YEAR), GENDER = max(Gender), POINTS = sum(PTS, na.rm = T), EVENTS = n_distinct(EVENT)) %>%
   mutate(PTS_PER_EVENT = POINTS / EVENTS) %>%
@@ -101,8 +100,8 @@ readPerfList = function(url){
 # Get 2019 & 2020 perf lists
 ```{r}
 # Current performance lists
-rank2020 = readPerfList('https://www.tfrrs.org/lists/2771/2019_2020_NCAA_Div._II_Indoor_Qualifying/2020/i?gender=f')
-rank2019 = readPerfList('https://www.tfrrs.org/lists/2325/2018_2019_NCAA_Div._II_Indoor_Qualifying_(FINAL)/2019/i')
+rank2020 = readPerfList('https://www.tfrrs.org/lists/2770/2019_2020_NCAA_Div._I_Indoor_Qualifying/2020/i')
+rank2019 = readPerfList('https://www.tfrrs.org/lists/2324/2018_2019_NCAA_Div._I_Indoor_Qualifying_(FINAL)/2019/i')
 ```
 
 # Join 2019 to 2020
@@ -153,13 +152,19 @@ getRank = function(df){
   # Create RANK value
   df = df %>%
     mutate(
-      RANK = ((POINTS / maxPts20) * 60) +
-        ((POINTS_19 / maxPts19) * 10) + 
-        ((PTS_PER_EVENT / maxPtsPerEvent20) * 20) + 
+      RANK = ((POINTS / maxPts20) * 50) +
+        ((POINTS_19 / maxPts19) * 30) + 
+        ((PTS_PER_EVENT / maxPtsPerEvent20) * 10) + 
         ((PTS_PER_EVENT_19 / maxPtsPerEvent19) * 10)
     ) %>%
     arrange(-RANK) %>%
+    mutate(
+      RANK = round(RANK, 2)
+    ) %>%
     select(ATHLETE, TEAM, YEAR, GENDER, RANK)
+  
+  # Subset to top 100
+  df = df[1:100, ]
   
   # Return df
   return(df)
@@ -171,6 +176,3 @@ getRank = function(df){
 men2020 = getRank(men2020)
 women2020 = getRank(women2020)
 ```
-
-
-

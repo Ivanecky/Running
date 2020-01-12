@@ -78,26 +78,31 @@ relays = relays %>%
         T ~ 'OTHER'
     ))
 
+# Get only the top 40 per event and assign points
 top40 = results %>%
     filter(PLACE <= 40) %>%
-    filter(EVENT %in% c('800m', 'Mile', '3000m', '5000m'))
-
-top40 = top40 %>%
+    filter(EVENT %in% c('800m', 'Mile', '3000m', '5000m')) %>%
     mutate(
         PTS = 41 - PLACE
     )
 
+# Group athletes to single line and get point totals
+# Order by PTS_PER_EVENT
 pts_grp = top40 %>%
     group_by(ATHLETE) %>%
     summarise(TEAM = max(TEAM), YEAR = max(YEAR), GENDER = max(Gender), POINTS = sum(PTS, na.rm = T), EVENTS = n_distinct(EVENT)) %>%
     mutate(PTS_PER_EVENT = POINTS / EVENTS) %>%
     arrange(-PTS_PER_EVENT)
 
+# Separate by gender
 top_men = pts_grp %>%
     filter(GENDER == 'M')
-
 top_women = pts_grp %>%
     filter(GENDER == 'F')
+
+# Only display top 50 for each gender
+top_men = top_men[1:50, ]
+top_women = top_women[1:50, ]
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {

@@ -5,8 +5,8 @@ account: ivanecky
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1640263
-bundleId: 2717076
+bundleId: 2717365
 url: https://ivanecky.shinyapps.io/D2_Power_Rankings/
-when: 1578583078.56685
+when: 1578588854.61493
 asMultiple: FALSE
 asStatic: FALSE
