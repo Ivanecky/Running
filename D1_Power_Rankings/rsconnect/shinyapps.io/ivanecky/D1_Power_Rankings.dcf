@@ -5,9 +5,9 @@ account: ivanecky
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1641121
-bundleId: 2723357
+bundleId: 2723808
 url: https://ivanecky.shinyapps.io/D1_Power_Rankings/
-when: 1578843237.59191
+when: 1578865765.7041
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: TSR.png

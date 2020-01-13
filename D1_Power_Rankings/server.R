@@ -89,39 +89,8 @@ readPerfList = function(url){
     return(pts_grp)
 }
 
-# Current performance lists
-rank2020 = readPerfList('https://www.tfrrs.org/lists/2770/2019_2020_NCAA_Div._I_Indoor_Qualifying/2020/i')
-rank2019 = readPerfList('https://www.tfrrs.org/lists/2324/2018_2019_NCAA_Div._I_Indoor_Qualifying_(FINAL)/2019/i')
-
-# Rename columns in 2019
-names(rank2019) = c("ATHLETE", "TEAM", "YEAR", "GENDER", "POINTS_19", "EVENTS_19", "PTS_PER_EVENT_19")
-
-# Select only required columns
-rank2019 = rank2019 %>%
-    select(ATHLETE, POINTS_19, EVENTS_19, PTS_PER_EVENT_19)
-
-# Join tables
-rank2020 = rank2020 %>%
-    left_join(rank2019, by = c("ATHLETE"))
-
-# Change NAs produced by join to 0
-rank2020 = rank2020 %>%
-    mutate(
-        POINTS_19 = ifelse(is.na(POINTS_19), 0, POINTS_19),
-        EVENTS_19 = ifelse(is.na(EVENTS_19), 0, EVENTS_19),
-        PTS_PER_EVENT_19 = ifelse(is.na(PTS_PER_EVENT_19), 0, PTS_PER_EVENT_19)
-    ) %>%
-    mutate(
-        PTS_PER_EVENT = round(PTS_PER_EVENT, 2),
-        PTS_PER_EVENT_19 = round(PTS_PER_EVENT_19, 2)
-    )
-
-# Split by gender
-men2020 = rank2020 %>% filter(GENDER == 'M')
-women2020 = rank2020 %>% filter(GENDER == 'F')
-
 # Function to get the rank
-getRank = function(df){
+giveRank = function(df){
     # Extract maximum total of any runner in each year
     maxPts20 = max(df$POINTS)
     maxPts19 = max(df$POINTS_19)
@@ -142,25 +111,17 @@ getRank = function(df){
         arrange(-RANK) %>%
         mutate(
             RANK = round(RANK, 2)
-        ) %>%
-        select(ATHLETE, TEAM, YEAR, GENDER, RANK)
+        )
     
     # Subset to top 100
     df = df[1:100, ]
     
-    # Give a numeric rank
-    df$OVERALL_RANK = 1:100
+    # Assign overall rank
+    df$`OVERALL RANK` = 1:100
     
     # Return df
     return(df)
 }
-
-# Run ranking function
-men2020 = getRank(men2020)
-women2020 = getRank(women2020)
-
-# Create data set for overall
-overall2020 = rbind(men2020, women2020)
 
 # Get information on athlete
 searchAthlete = function(runner){
@@ -173,7 +134,7 @@ searchAthlete = function(runner){
     last_name = tolower(runner[2])
     
     # Search for the athlete
-    searchedRunner = rank2020[which(grepl(first_name, tolower(rank2020$ATHLETE)) & grepl(last_name, tolower(rank2020$ATHLETE))), ]
+    searchedRunner = overall[which(grepl(first_name, tolower(overall$ATHLETE)) & grepl(last_name, tolower(overall$ATHLETE))), ]
     
     return(searchedRunner)
 }
@@ -188,18 +149,143 @@ getRank = function(runner){
     last_name = tolower(runner[2])
     
     # Search for the athlete
-    searchedRunner = overall2020[which(grepl(first_name, tolower(overall2020$ATHLETE)) & grepl(last_name, tolower(overall2020$ATHLETE))), ]
+    searchedRunner = overall[which(grepl(first_name, tolower(overall$ATHLETE)) & grepl(last_name, tolower(overall$ATHLETE))), ]
     
     # Return rank
-    return(searchedRunner$OVERALL_RANK)
+    return(searchedRunner$`OVERALL RANK`)
 }
+
+# Read all of the data into one big table
+d1_2020 = readPerfList('https://www.tfrrs.org/lists/2770/2019_2020_NCAA_Div._I_Indoor_Qualifying/2020/i')
+d1_2019 = readPerfList('https://www.tfrrs.org/lists/2324/2018_2019_NCAA_Div._I_Indoor_Qualifying_(FINAL)/2019/i')
+d2_2020 = readPerfList('https://www.tfrrs.org/lists/2771/2019_2020_NCAA_Div._II_Indoor_Qualifying/2020/i')
+d2_2019 = readPerfList('https://www.tfrrs.org/lists/2325/2018_2019_NCAA_Div._II_Indoor_Qualifying_(FINAL)/2019/i')
+d3_2020 = readPerfList('https://www.tfrrs.org/lists/2772/2019_2020_NCAA_Div._III_Indoor_Qualifying/2020/i')
+d3_2019 = readPerfList('https://www.tfrrs.org/lists/2326/2018_2019_NCAA_Div._III_Indoor_Qualifying_(FINAL)/2019/i')
+
+# Create division columns
+d1_2020$DIVISION = "D1"
+d1_2019$DIVISION = "D1"
+d2_2020$DIVISION = "D2"
+d2_2019$DIVISION = "D2"
+d3_2020$DIVISION = "D3"
+d3_2019$DIVISION = "D3"
+
+# Rename 2019 data
+names(d1_2019) = c("ATHLETE", "TEAM", "YEAR", "GENDER", "POINTS_19", "EVENTS_19", "PTS_PER_EVENT_19", "DIVISION")
+names(d2_2019) = c("ATHLETE", "TEAM", "YEAR", "GENDER", "POINTS_19", "EVENTS_19", "PTS_PER_EVENT_19", "DIVISION")
+names(d3_2019) = c("ATHLETE", "TEAM", "YEAR", "GENDER", "POINTS_19", "EVENTS_19", "PTS_PER_EVENT_19", "DIVISION")
+
+# Select only required columns from 2019 data
+d1_2019 = d1_2019 %>% select(ATHLETE, POINTS_19, EVENTS_19, PTS_PER_EVENT_19)
+d2_2019 = d2_2019 %>% select(ATHLETE, POINTS_19, EVENTS_19, PTS_PER_EVENT_19)
+d3_2019 = d3_2019 %>% select(ATHLETE, POINTS_19, EVENTS_19, PTS_PER_EVENT_19)
+
+# Join divisional data together
+d1 = d1_2020 %>% left_join(d1_2019, by = c("ATHLETE"))
+d2 = d2_2020 %>% left_join(d2_2019, by = c("ATHLETE"))
+d3 = d3_2020 %>% left_join(d3_2019, by = c("ATHLETE"))
+
+
+# Function to handle NAs
+handleNA = function(df)
+{
+    df = df %>%
+        mutate(
+            POINTS_19 = ifelse(is.na(POINTS_19), 0, POINTS_19),
+            EVENTS_19 = ifelse(is.na(EVENTS_19), 0, EVENTS_19),
+            PTS_PER_EVENT_19 = ifelse(is.na(PTS_PER_EVENT_19), 0, PTS_PER_EVENT_19)
+        ) %>%
+        mutate(
+            PTS_PER_EVENT = round(PTS_PER_EVENT, 2),
+            PTS_PER_EVENT_19 = round(PTS_PER_EVENT_19, 2)
+        )
+    # Return data frame
+    return(df)
+}
+
+# Handle all the NAs
+d1 = handleNA(d1)
+d2 = handleNA(d2)
+d3 = handleNA(d3)
+
+# Split by gender
+menD1 = d1 %>% filter(GENDER == 'M')
+womenD1 = d1 %>% filter(GENDER == 'F')
+
+menD2 = d2 %>% filter(GENDER == 'M')
+womenD2 = d2 %>% filter(GENDER == 'F')
+
+menD3 = d3 %>% filter(GENDER == 'M')
+womenD3 = d3 %>% filter(GENDER == 'F')
+
+# Run ranking function against data
+menD1 = giveRank(menD1)
+womenD1 = giveRank(womenD1)
+
+menD2 = giveRank(menD2)
+womenD2 = giveRank(womenD2)
+
+menD3 = giveRank(menD3)
+womenD3 = giveRank(womenD3)
+
+# Combine all the data from separate divisions
+men = rbind(menD1, menD2, menD3)
+women = rbind(womenD1, womenD2, womenD3)
+
+# Create overall data set
+overall = rbind(men, women)
+
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
     
-    output$menRank = renderTable(men2020)
+    # Function to select which division to query
+    mensData = reactive({
+        
+        # Temporarily set data
+        df = men %>% filter(DIVISION == "D1")
+        
+        if ( input$division == "D1" )
+        {
+            df = men %>% filter(DIVISION == "D1")
+        }
+        else if ( input$division == "D2" )
+        {
+            df = men %>% filter(DIVISION == "D2")
+        }
+        else if ( input$division == "D3" )
+        {
+            df = men %>% filter(DIVISION == "D3")
+        }
+        
+        return(df)
+    })
     
-    output$womenRank = renderTable(women2020)
+    womensData = reactive({
+        
+        # Temporarily set data
+        df = women %>% filter(DIVISION == "D1")
+        
+        if ( input$division == "D1" )
+        {
+            df = women %>% filter(DIVISION == "D1")
+        }
+        else if ( input$division == "D2" )
+        {
+            df = women %>% filter(DIVISION == "D2")
+        }
+        else if ( input$division == "D3" )
+        {
+            df = women %>% filter(DIVISION == "D3")
+        }
+        
+        return(df)
+    })
+    
+    output$menRank = renderTable(mensData())
+    
+    output$womenRank = renderTable(womensData())
     
     # Functions to pull out runner info
     # Get name of first runner
