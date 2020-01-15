@@ -1,0 +1,284 @@
+---
+title: "XC Analysis"
+author: "Samuel Ivanecky"
+date: "1/14/2020"
+output: html_document
+---
+# SETUP
+```{r setup, include=FALSE}
+# Libraries
+library(ggplot2)
+library(tidyverse)
+library(data.table)
+library(rvest)
+library(forecast)
+library(XML)
+
+# Set WD
+setwd("~/Desktop/XC/Running/")
+```
+
+# GRAB XC RESULTS
+```{r}
+# XC results - 2019
+xc19 = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc19 = read_html(xc19) %>% html_table()
+
+# Extract each table
+women_19 = as.data.frame(xc19[[2]])
+men_19 = as.data.frame(xc19[[4]])
+# XC results - 2018
+xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships'
+
+# Read webpage into tables
+xc18 = read_html(xc18) %>% html_table()
+
+# Extract each table
+women_18 = as.data.frame(xc18[[2]])
+men_18 = as.data.frame(xc18[[4]])
+
+# XC results - 2017
+xc17 = 'https://www.tfrrs.org/results/xc/13423/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc17 = read_html(xc17) %>% html_table()
+
+# Extract each table
+women_17 = as.data.frame(xc17[[2]])
+men_17 = as.data.frame(xc17[[4]])
+
+# XC results - 2016
+xc16 = 'https://www.tfrrs.org/results/xc/11271/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc16 = read_html(xc16) %>% html_table()
+
+# Extract each table
+women_16 = as.data.frame(xc16[[2]])
+men_16 = as.data.frame(xc16[[4]])
+
+# XC results - 2015
+xc15 = 'https://www.tfrrs.org/results/xc/9347/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc15 = read_html(xc15) %>% html_table()
+
+# Extract each table
+women_15 = as.data.frame(xc15[[2]])
+men_15 = as.data.frame(xc15[[4]])
+
+# XC results - 2014
+xc14 = 'https://www.tfrrs.org/results/xc/7652/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc14 = read_html(xc14) %>% html_table()
+
+# Extract each table
+women_14 = as.data.frame(xc14[[2]])
+men_14 = as.data.frame(xc14[[4]])
+
+# XC results - 2013
+xc13 = 'https://www.tfrrs.org/results/xc/6218/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc13 = read_html(xc13) %>% html_table()
+
+# Extract each table - note order is flipped
+women_13 = as.data.frame(xc13[[4]])
+men_13 = as.data.frame(xc13[[2]])
+
+# XC results - 2012
+xc12 = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc12 = read_html(xc12) %>% html_table()
+
+# Extract each table
+women_12 = as.data.frame(xc12[[2]])
+men_12 = as.data.frame(xc12[[4]])
+
+# Remove HTML objects
+rm(xc12, xc13, xc14, xc15, xc16, xc17, xc18, xc19)
+
+```
+
+# CLEAN UP THE DATA
+```{r}
+# Only grab necessary columns from each year + add var for finish year
+# 2019
+men_19 = men_19 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_19 = women_19 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2018
+men_18 = men_18 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_18 = women_18 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2017
+men_17 = men_17 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_17 = women_17 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2016
+men_16 = men_16 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_16 = women_16 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2015
+men_15 = men_15 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_15= women_15 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2014
+men_14 = men_14 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_14 = women_14 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2013
+men_13 = men_13 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_13 = women_13 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+# 2012
+men_12 = men_12 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+women_12 = women_12 %>%
+  select(NAME, TEAM, YEAR, TIME, PL)
+```
+
+# CREATE OVERALL DATA SET
+```{r}
+men = rbind(men_12, men_13, men_14, men_15, men_16, men_17, men_18, men_19)
+women = rbind(women_12, women_13, women_14, women_15, women_16, women_17, women_18, women_19)
+```
+
+# CREATE YEAR PLACE VARS
+```{r}
+# Men
+men$PL = as.numeric(men$PL)
+men_grp = men %>%
+  mutate(
+    FR.PL = case_when(
+      grepl("FR", YEAR) ~ PL,
+      T ~ 999
+    ),
+    SO.PL = case_when(
+      grepl("SO", YEAR) ~ PL,
+      T ~ 999
+    ),
+    JR.PL = case_when(
+      grepl("JR|3", YEAR) ~ PL,
+      T ~ 999
+    ),
+   SR.PL = case_when(
+     grepl("SR", YEAR) ~ PL,
+     T ~ 999
+   )
+  ) %>%
+  group_by(NAME) %>%
+  summarise(TEAM = max(TEAM), FR = max(FR.PL), SO = max(SO.PL), JR = max(JR.PL), SR = max(SR.PL))
+
+# Women
+women$PL = as.numeric(women$PL)
+women_grp = women %>%
+  mutate(
+    FR.PL = case_when(
+      grepl("FR", YEAR) ~ PL,
+      T ~ 999
+    ),
+    SO.PL = case_when(
+      grepl("SO", YEAR) ~ PL,
+      T ~ 999
+    ),
+    JR.PL = case_when(
+      grepl("JR|3", YEAR) ~ PL,
+      T ~ 999
+    ),
+   SR.PL = case_when(
+     grepl("SR", YEAR) ~ PL,
+     T ~ 999
+   )
+  ) %>%
+  group_by(NAME) %>%
+  summarise(TEAM = max(TEAM), FR = min(FR.PL), SO = min(SO.PL), JR = min(JR.PL), SR = min(SR.PL))
+```
+
+# HANDLE -999
+```{r}
+men_grp$FR = ifelse(men_grp$FR == 999, NA, men_grp$FR)
+men_grp$SO = ifelse(men_grp$SO == 999, NA, men_grp$SO)
+men_grp$JR = ifelse(men_grp$JR == 999, NA, men_grp$JR)
+men_grp$SR = ifelse(men_grp$SR == 999, NA, men_grp$SR)
+
+women_grp$FR = ifelse(women_grp$FR == 999, NA, women_grp$FR)
+women_grp$SO = ifelse(women_grp$SO == 999, NA, women_grp$SO)
+women_grp$JR = ifelse(women_grp$JR == 999, NA, women_grp$JR)
+women_grp$SR = ifelse(women_grp$SR == 999, NA, women_grp$SR)
+```
+
+# WRITE TO CSV
+```{r}
+write.csv(men_grp, "MEN_XC_All_Time.csv")
+write.csv(women_grp, "WOMEN_XC_All_Time.csv")
+```
+
+# EDA
+```{r}
+# MEN
+ggplot(men_grp, aes(FR)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Male FR Finishes") + labs(x = "Finish", y = "Count")
+ggplot(men_grp, aes(SO)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Male SO Finishes") + labs(x = "Finish", y = "Count")
+ggplot(men_grp, aes(JR)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Male JR Finishes") + labs(x = "Finish", y = "Count")
+ggplot(men_grp, aes(SR)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Male SR Finishes") + labs(x = "Finish", y = "Count")
+
+# WOMEN
+ggplot(women_grp, aes(FR)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Female FR Finishes") + labs(x = "Finish", y = "Count")
+ggplot(women_grp, aes(SO)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Female SO Finishes") + labs(x = "Finish", y = "Count")
+ggplot(women_grp, aes(JR)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Female JR Finishes") + labs(x = "Finish", y = "Count")
+ggplot(women_grp, aes(SR)) + geom_histogram(bins = 25, colour = "blue", fill = "lightblue") + ggtitle("Distribution of Female SR Finishes") + labs(x = "Finish", y = "Count")
+
+```
+
+# DYNAMICALLY SCRAPE TFRRS LINKS
+```{r}
+# TFRRS Results Page
+#url = "https://www.tfrrs.org/results_search.html"
+url = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
+
+# Read in the links on the webpage
+wp = read_html(url) %>% 
+  html_nodes(xpath = "//td/a") %>% 
+  html_attr("href")
+
+# Manipulate strings
+for ( i  in 1:length(wp) )
+{
+  temp = wp[i]
+  #temp = substring(temp, 3)
+  temp = paste0("https:", temp)
+  temp = substr(temp, 1, nchar(temp)-3)
+  wp[i] = temp
+}
+```
+
+```{r}
+# Attempt to read in first runner
+runner = read_html("https://www.tfrrs.org/athletes/5684073/Colorado/Dani_Jones.html") %>%
+  html_nodes("td") %>%
+  html_text()
+
+runner = gsub("[\t\n]", "", runner)
+runner = gsub("-", "", runner)
+runner = gsub("\\...", "", runner)
+runner = str_trim(runner, side = "both")
+
+runner = as.data.frame(runner)
+```
+
+
+
+
+
+

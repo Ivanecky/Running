@@ -1,0 +1,208 @@
+---
+title: "NCAA Results Scraper"
+author: "Samuel Ivanecky"
+date: "1/13/2020"
+output: html_document
+---
+# SETUP
+```{r setup, include=FALSE}
+# Libraries
+library(ggplot2)
+library(tidyverse)
+library(data.table)
+library(rvest)
+library(forecast)
+library(XML)
+
+# Set WD
+setwd("~/Desktop/XC/Running/")
+```
+
+# GRAB XC RESULTS
+```{r}
+# XC results - 2018
+xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships'
+
+# Read webpage into tables
+xc18 = read_html(xc18) %>% html_table()
+
+# Extract each table
+women_18 = as.data.frame(xc18[[2]])
+men_18 = as.data.frame(xc18[[4]])
+
+# XC results - 2017
+xc17 = 'https://www.tfrrs.org/results/xc/13423/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc17 = read_html(xc17) %>% html_table()
+
+# Extract each table
+women_17 = as.data.frame(xc17[[2]])
+men_17 = as.data.frame(xc17[[4]])
+
+# XC results - 2016
+xc16 = 'https://www.tfrrs.org/results/xc/11271/NCAA_Division_I_Cross_Country_Championships'
+
+# Read webpage into tables
+xc16 = read_html(xc16) %>% html_table()
+
+# Extract each table
+women_16 = as.data.frame(xc16[[2]])
+men_16 = as.data.frame(xc16[[4]])
+
+# Remove HTML objects
+rm(xc16, xc17, xc18)
+
+```
+
+# GRAB INDOOR TRACK RESULTS
+## 2019
+```{r}
+url = 'https://en.wikipedia.org/wiki/2019_NCAA_Division_I_Indoor_Track_and_Field_Championships'
+
+wp = read_html(url) %>% html_table(fill = TRUE)
+
+# Grab second table as starting base
+results = wp[[2]]
+# Assign names
+names(results) = c("FINISH", "NAME", "TEAM", "MARK", "SCORE")
+
+# Append all results into a big data frame
+for ( i in 3:length(wp) )
+{
+  # Check to see if number of columns aligns
+  if( ncol(wp[[i]]) == 5 )
+  {
+    # Rename
+    names(wp[[i]]) = c("FINISH", "NAME", "TEAM", "MARK", "SCORE")
+    # Bind
+    results = rbind(results, wp[[i]])
+  }
+}
+
+# Fix NA columns
+results_19 = results %>%
+  mutate(
+    SCORE = as.numeric(SCORE),
+    FINISH = as.numeric(FINISH)
+  ) %>%
+  mutate(
+    FINISH = case_when(
+      SCORE == 10 ~ 1,
+      SCORE == 8 ~ 2, 
+      SCORE == 6 ~ 3,
+      T ~ FINISH
+    )
+  )
+
+# Remove temp vars
+rm(results, wp, url)
+
+```
+
+## 2018
+```{r}
+url = 'https://en.wikipedia.org/wiki/2018_NCAA_Division_I_Indoor_Track_and_Field_Championships'
+
+wp = read_html(url) %>% html_table(fill = TRUE)
+
+# Grab second table as starting base
+results = wp[[2]]
+# Assign names
+names(results) = c("FINISH", "NAME", "TEAM", "MARK", "SCORE")
+
+# Append all results into a big data frame
+for ( i in 3:length(wp) )
+{
+  # Check to see if number of columns aligns
+  if( ncol(wp[[i]]) == 5 )
+  {
+    # Rename
+    names(wp[[i]]) = c("FINISH", "NAME", "TEAM", "MARK", "SCORE")
+    # Bind
+    results = rbind(results, wp[[i]])
+  }
+}
+
+# Fix NA columns
+results_18 = results %>%
+  mutate(
+    SCORE = as.numeric(SCORE),
+    FINISH = as.numeric(FINISH)
+  ) %>%
+  mutate(
+    FINISH = case_when(
+      SCORE == 10 ~ 1,
+      SCORE == 8 ~ 2, 
+      SCORE == 6 ~ 3,
+      T ~ FINISH
+    )
+  )
+
+# Remove temp vars
+rm(results, wp, url)
+
+```
+
+
+# GROUP RESULTS DATA
+```{r}
+results_grp = results %>%
+  group_by(NAME) %>%
+  summarise(POINTS = sum(SCORE, na.rm = T), WINS = sum(FINISH[FINISH == 1]), EVENTS = n_distinct(MARK), TEAM = max(TEAM))
+```
+
+# CLEAN UP DATA
+```{r}
+# Need to remove the random country strings from certain names that show up
+results_grp = separate(results_grp, NAME, c("FIRST", "LAST"), sep = " ") 
+ # Create full name
+results_grp$NAME = tolower(paste0(results_grp$FIRST, " ", results_grp$LAST))
+
+# Remove first and last name columns
+results_grp = results_grp %>%
+  select(NAME, POINTS, WINS, EVENTS)
+```
+
+# JOIN INDOOR RESULTS TO XC
+```{r}
+# Combine men and women XC individuals
+# Remove split columns
+mens_ind = mens_ind %>%
+  select(PL, NAME, YEAR, TEAM)
+womens_ind = womens_ind %>%
+  select(PL, NAME, YEAR, TEAM)
+
+# Bind together
+xc_ind = rbind(mens_ind, womens_ind)
+
+# Reformat name
+xc_ind$NAME = tolower(xc_ind$NAME)
+xc_ind = separate(xc_ind, NAME, c("last", "first"), sep = ", ")
+xc_ind$NAME = paste0(xc_ind$first, " ", xc_ind$last)
+xc_ind = xc_ind %>%
+  select(NAME, PL, TEAM, YEAR)
+
+# Join indoor results
+all_results = xc_ind %>%
+  left_join(results_grp, by = c("NAME"))
+
+# Handle NA results
+all_results$POINTS = ifelse(is.na(all_results$POINTS), 0, all_results$POINTS)
+all_results$WINS = ifelse(is.na(all_results$WINS), 0, all_results$WINS)
+all_results$EVENTS = ifelse(is.na(all_results$EVENTS), 0, all_results$EVENTS)
+
+```
+
+# EXP DATA ANALYSIS
+```{r}
+# Compare POINTS against PLACE
+# Create temporary with only scoring athletes
+scorers = all_results %>%
+  filter(POINTS > 0)
+
+ggplot(scorers, aes(PL, POINTS)) +
+  geom_point()
+```
+
+
