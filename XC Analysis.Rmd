@@ -20,9 +20,11 @@ setwd("~/Desktop/XC/Running/")
 
 # GRAB XC RESULTS
 ```{r}
+# To run for D1, womens tables are first except 2013.
+# To run for D2, need to flip order of mens and womens tables.
 # XC results - 2019
-xc19 = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
-
+xc19 = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships' # D1
+#xc19 = 'https://www.tfrrs.org/results/xc/16713/NCAA_Division_II_Cross_Country_Championships' # D2
 # Read webpage into tables
 xc19 = read_html(xc19) %>% html_table()
 
@@ -30,7 +32,8 @@ xc19 = read_html(xc19) %>% html_table()
 women_19 = as.data.frame(xc19[[2]])
 men_19 = as.data.frame(xc19[[4]])
 # XC results - 2018
-xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships'
+xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships' # D1
+#xc18 = 'https://www.tfrrs.org/results/xc/15037/NCAA_Division_II_Cross_Country_Championships' # D2
 
 # Read webpage into tables
 xc18 = read_html(xc18) %>% html_table()
@@ -40,7 +43,8 @@ women_18 = as.data.frame(xc18[[2]])
 men_18 = as.data.frame(xc18[[4]])
 
 # XC results - 2017
-xc17 = 'https://www.tfrrs.org/results/xc/13423/NCAA_Division_I_Cross_Country_Championships'
+xc17 = 'https://www.tfrrs.org/results/xc/13423/NCAA_Division_I_Cross_Country_Championships' # D1
+#xc17 = 'https://www.tfrrs.org/results/xc/13406/NCAA_Division_II_Cross_Country_Championships' # D2
 
 # Read webpage into tables
 xc17 = read_html(xc17) %>% html_table()
@@ -50,7 +54,8 @@ women_17 = as.data.frame(xc17[[2]])
 men_17 = as.data.frame(xc17[[4]])
 
 # XC results - 2016
-xc16 = 'https://www.tfrrs.org/results/xc/11271/NCAA_Division_I_Cross_Country_Championships'
+xc16 = 'https://www.tfrrs.org/results/xc/11271/NCAA_Division_I_Cross_Country_Championships' # D1
+#xc16 = 'https://www.tfrrs.org/results/xc/11246/NCAA_Division_II_Cross_Country_Championships' # D2
 
 # Read webpage into tables
 xc16 = read_html(xc16) %>% html_table()
@@ -60,7 +65,8 @@ women_16 = as.data.frame(xc16[[2]])
 men_16 = as.data.frame(xc16[[4]])
 
 # XC results - 2015
-xc15 = 'https://www.tfrrs.org/results/xc/9347/NCAA_Division_I_Cross_Country_Championships'
+xc15 = 'https://www.tfrrs.org/results/xc/9347/NCAA_Division_I_Cross_Country_Championships' # D1
+#xc15 = 'https://www.tfrrs.org/results/xc/9348/NCAA_Division_II_Cross_Country_Championships' # D2
 
 # Read webpage into tables
 xc15 = read_html(xc15) %>% html_table()
@@ -70,7 +76,8 @@ women_15 = as.data.frame(xc15[[2]])
 men_15 = as.data.frame(xc15[[4]])
 
 # XC results - 2014
-xc14 = 'https://www.tfrrs.org/results/xc/7652/NCAA_Division_I_Cross_Country_Championships'
+xc14 = 'https://www.tfrrs.org/results/xc/7652/NCAA_Division_I_Cross_Country_Championships' # D1
+#xc14 = 'https://www.tfrrs.org/results/xc/7658/NCAA_Division_II_National_Championships' # D2
 
 # Read webpage into tables
 xc14 = read_html(xc14) %>% html_table()
@@ -80,17 +87,20 @@ women_14 = as.data.frame(xc14[[2]])
 men_14 = as.data.frame(xc14[[4]])
 
 # XC results - 2013
-xc13 = 'https://www.tfrrs.org/results/xc/6218/NCAA_Division_I_Cross_Country_Championships'
+xc13 = 'https://www.tfrrs.org/results/xc/6218/NCAA_Division_I_Cross_Country_Championships' # D1
+#xc13 = 'https://www.tfrrs.org/results/xc/6221/NCAA_Division_II_Cross_Country_Championships' # D2
 
 # Read webpage into tables
 xc13 = read_html(xc13) %>% html_table()
 
-# Extract each table - note order is flipped
+# Extract each table - note order is flipped for D1
+# For D2, women are first.
 women_13 = as.data.frame(xc13[[4]])
 men_13 = as.data.frame(xc13[[2]])
 
 # XC results - 2012
-xc12 = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
+xc12 = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships' # D1
+#xc12 = 'https://www.tfrrs.org/results/xc/4796/2012_NCAA_Division_II_Cross_Country_Championships' # D2
 
 # Read webpage into tables
 xc12 = read_html(xc12) %>% html_table()
@@ -155,6 +165,24 @@ men = rbind(men_12, men_13, men_14, men_15, men_16, men_17, men_18, men_19)
 women = rbind(women_12, women_13, women_14, women_15, women_16, women_17, women_18, women_19)
 ```
 
+# ONLY FOR D2
+# CODE TO ADJUST NAMES FOR PROPER GROUPING
+```{r}
+# men = separate(men, NAME, c("LAST", "FIRST"))
+# men = men %>%
+#   mutate(
+#     NAME = paste0(FIRST, " ", LAST)
+#   ) %>%
+#   select(NAME, TEAM, YEAR, PL)
+# 
+# women = separate(women, NAME, c("LAST", "FIRST"))
+# women = women %>%
+#   mutate(
+#     NAME = paste0(FIRST, " ", LAST)
+#   ) %>%
+#   select(NAME, TEAM, YEAR, PL)
+```
+
 # CREATE YEAR PLACE VARS
 ```{r}
 # Men
@@ -179,7 +207,7 @@ men_grp = men %>%
    )
   ) %>%
   group_by(NAME) %>%
-  summarise(TEAM = max(TEAM), FR = max(FR.PL), SO = max(SO.PL), JR = max(JR.PL), SR = max(SR.PL))
+  summarise(TEAM = min(TEAM), FR = min(FR.PL), SO = min(SO.PL), JR = min(JR.PL), SR = min(SR.PL))
 
 # Women
 women$PL = as.numeric(women$PL)
@@ -221,8 +249,8 @@ women_grp$SR = ifelse(women_grp$SR == 999, NA, women_grp$SR)
 
 # WRITE TO CSV
 ```{r}
-write.csv(men_grp, "MEN_XC_All_Time.csv")
-write.csv(women_grp, "WOMEN_XC_All_Time.csv")
+write.csv(men_grp, "MEN_XC_All_Time_D1.csv")
+write.csv(women_grp, "WOMEN_XC_All_Time_D1.csv")
 ```
 
 # EDA

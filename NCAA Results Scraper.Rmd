@@ -133,7 +133,7 @@ results_18 = results %>%
   mutate(
     FINISH = case_when(
       SCORE == 10 ~ 1,
-      SCORE == 8 ~ 2, 
+      SCORE == 8 ~ 2,
       SCORE == 6 ~ 3,
       T ~ FINISH
     )
@@ -142,12 +142,119 @@ results_18 = results %>%
 # Remove temp vars
 rm(results, wp, url)
 
+# Write to csv to make some manual corrections
+write.csv(results_18, "Indoor_Results_2018.csv")
+```
+
+## 2017
+```{r}
+url = 'https://en.wikipedia.org/wiki/2017_NCAA_Division_I_Indoor_Track_and_Field_Championships'
+
+wp = read_html(url) %>% html_table(fill = TRUE)
+
+# Grab second table as starting base
+results = wp[[2]]
+# Assign names
+names(results) = c("FINISH", "NAME", "TEAM", "MARK", "SCORE")
+
+# Append all results into a big data frame
+for ( i in 3:length(wp) )
+{
+  # Check to see if number of columns aligns
+  if( ncol(wp[[i]]) == 5 )
+  {
+    # Rename
+    names(wp[[i]]) = c("FINISH", "NAME", "TEAM", "MARK", "SCORE")
+    # Bind
+    results = rbind(results, wp[[i]])
+  }
+}
+
+# Fix NA columns
+results_17 = results %>%
+  mutate(
+    SCORE = as.numeric(SCORE),
+    FINISH = as.numeric(FINISH)
+  ) %>%
+  mutate(
+    FINISH = case_when(
+      SCORE == 10 ~ 1,
+      SCORE == 8 ~ 2, 
+      SCORE == 6 ~ 3,
+      T ~ FINISH
+    )
+  )
+
+# Remove temp vars
+rm(results, wp, url)
+```
+
+## 2016
+```{r}
+# 2016 data is very messy
+results = read_html("https://ncaaindoorchampionships.runnerspace.com/eprofile.php?event_id=42&year=2016&do=info") %>% 
+  html_nodes("table") %>%
+  html_table(fill = TRUE)
+
+# Need to grab the right table
+results = as.data.frame(results[49])
+
+# Remove empty rows and subset to only first 5 columns
+results = results %>%
+  select(X1, X2, X3, X4, X5) %>%
+  filter(X1 != '')
+
+# Remove rows with header text
+results = results %>%
+  filter(nchar(X1) < 2)
+
+# Rename columns
+names(results) = c("PL", "NAME", "YEAR", "TEAM", "MARK")
+
+# Create score var
+results = results %>%
+  mutate(
+    SCORE = case_when(
+      PL == 1 ~ 10,
+      PL == 2 ~ 8,
+      PL == 3 ~ 6,
+      PL == 4 ~ 5,
+      PL == 5 ~ 4, 
+      PL == 6 ~ 3,
+      PL == 7 ~ 2,
+      PL == 8 ~ 1,
+      T ~ 0
+    )
+  )
+
+# Fix NA columns
+results_16 = results
+
+# Remove temp vars
+rm(results, wp, url)
+```
+
+## 2015
+```{r}
+url = 'https://ncaaindoorchampionships.runnerspace.com/eprofile.php?do=info&year=2015&event_id=42'
+
+wp = read_html(url)
 ```
 
 
+## READ IN MANUALLY EDITED RESULTS
+```{r}
+results_18 = read.csv("Indoor_Results_2018.csv")
+```
+
+## ASSIGN POINTS FOR MANUALLY EDITED DATA
+```{r}
+
+```
+
 # GROUP RESULTS DATA
 ```{r}
-results_grp = results %>%
+results_grp = results_19 %>%
   group_by(NAME) %>%
   summarise(POINTS = sum(SCORE, na.rm = T), WINS = sum(FINISH[FINISH == 1]), EVENTS = n_distinct(MARK), TEAM = max(TEAM))
 ```
@@ -168,13 +275,13 @@ results_grp = results_grp %>%
 ```{r}
 # Combine men and women XC individuals
 # Remove split columns
-mens_ind = mens_ind %>%
+men_18 = men_18 %>%
   select(PL, NAME, YEAR, TEAM)
-womens_ind = womens_ind %>%
+women_18 = women_18 %>%
   select(PL, NAME, YEAR, TEAM)
 
 # Bind together
-xc_ind = rbind(mens_ind, womens_ind)
+xc_ind = rbind(men_18, women_18)
 
 # Reformat name
 xc_ind$NAME = tolower(xc_ind$NAME)
@@ -203,6 +310,12 @@ scorers = all_results %>%
 
 ggplot(scorers, aes(PL, POINTS)) +
   geom_point()
+```
+
+```{r}
+temp = read_html("https://ncaaindoorchampionships.runnerspace.com/eprofile.php?event_id=42&year=2016&do=info") %>% 
+  html_nodes("table") %>%
+  html_table(fill = TRUE)
 ```
 
 
