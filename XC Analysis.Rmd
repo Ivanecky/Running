@@ -269,40 +269,214 @@ ggplot(women_grp, aes(SR)) + geom_histogram(bins = 25, colour = "blue", fill = "
 
 ```
 
+# FEATURE ENGINEERING
+## CREATE GENDER VAR
+```{r}
+# Gender var
+men_grp$GENDER = "M"
+women_grp$GENDER = "F"
+
+# Join two tables together
+overall = rbind(men_grp, women_grp)
+```
+
+## GET JUMPS PER YEAR
+```{r}
+overall = overall %>%
+  mutate(
+    J1 = FR-SO,
+    J2 = SO-JR,
+    J3 = JR-SR
+  )
+```
+
+## DISTRIBUTION OF JUMPS
+```{r}
+ggplot(overall, aes(J1)) + geom_histogram(bins = 35, fill = "lightblue", color = "blue") + ggtitle("Distribution of Jump Between FR & SO YRs")
+ggplot(overall, aes(J2)) + geom_histogram(bins = 35, fill = "lightblue", color = "blue") + ggtitle("Distribution of Jump Between SO & JR YRs")
+ggplot(overall, aes(J3)) + geom_histogram(bins = 35, fill = "lightblue", color = "blue") + ggtitle("Distribution of Jump Between JR & SR YRs")
+```
+
+## DISTRIBUTION OF FINISH BY GRADE
+```{r}
+# Freshman
+fr = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(FR, fill = GENDER)) + 
+  ggtitle("Distribution of Freshman Finishes") + 
+  labs(x = "Finish", y = "Density")
+
+# Sophomore
+so = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(SO, fill = GENDER)) + 
+  ggtitle("Distribution of Sophomore Finishes") + 
+  labs(x = "Finish", y = "Density")
+
+# Junior
+jr = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(JR, fill = GENDER)) + 
+  ggtitle("Distribution of Junior Finishes") + 
+  labs(x = "Finish", y = "Density")
+
+# Senior
+sr = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(SR, fill = GENDER)) + 
+  ggtitle("Distribution of Senior Finishes") + 
+  labs(x = "Finish", y = "Density")
+
+gridExtra::grid.arrange(fr, so, jr, sr)
+```
+
+## DISTRIBUTION OF JUMPS BY GENDER
+```{r}
+# Jump 1
+j1 = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(J1, fill = GENDER)) + 
+  ggtitle("Jump from FR to SO") + 
+  labs(x = "Jump in Finish", y = "Density")
+
+# Jump 2
+j2 = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(J2, fill = GENDER)) + 
+  ggtitle("Jump from SO to JR") + 
+  labs(x = "Jump in Finish", y = "Density")
+
+# Jump 3
+j3 = ggplot(overall) +
+  geom_density(alpha = 0.4, aes(J3, fill = GENDER)) + 
+  ggtitle("Jump from JR to SR") + 
+  labs(x = "Jump in Finish", y = "Density")
+
+gridExtra::grid.arrange(j1, j2, j3)
+```
+
+# GROUP ON SCHOOL LEVEL
+```{r}
+team_overall = overall %>%
+  #filter(GENDER == 'F') %>%
+  group_by(TEAM) %>%
+  summarise(NUM_RUNNERS = n_distinct(NAME), 
+            FR.AVG = round(mean(FR, na.rm = T), 2), 
+            SO.AVG = round(mean(SO, na.rm = T), 2), 
+            JR.AVG = round(mean(JR, na.rm = T), 2), 
+            SR.AVG = round(mean(SR, na.rm = T), 2),
+            NUM.FR = n_distinct(NAME[!is.na(FR)]), 
+            NUM.SO = n_distinct(NAME[!is.na(SO)]),
+            NUM.JR = n_distinct(NAME[!is.na(JR)]),
+            NUM.SR = n_distinct(NAME[!is.na(SR)]))
+```
+
+## SHOW TOP FRESHMAN SCHOOLS
+```{r}
+# Aggregate by Freshman Finish
+freshman = team_overall %>%
+  filter(NUM.FR >= 3) %>%
+  arrange(FR.AVG)
+
+# Only show top 10
+freshman = freshman[1:10, ]
+
+# PLot
+ggplot(freshman, aes(reorder(TEAM, FR.AVG), FR.AVG, fill = TEAM)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle(label = "Best Average Freshman Finish by School", subtitle = "Schools must have at least 3 freshman finishes.") +
+  labs(x = "School", y = "Average Finish") +
+  geom_text(aes(label=FR.AVG), position=position_dodge(width=0.9), vjust=-0.25) +
+  guides(fill=FALSE)
+
+# Aggregate by number of freshman runners
+freshman = team_overall %>%
+  arrange(-NUM.FR)
+
+# Onlt take top 10
+freshman = freshman[1:25, ]
+
+# Plot
+ggplot(freshman, aes(reorder(TEAM, -NUM.FR), NUM.FR, fill = TEAM)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle(label = "Most Freshman Finishes by School") +
+  labs(x = "School", y = "Count of Freshman Finishes") +
+  geom_text(aes(label=NUM.FR), position=position_dodge(width=0.9), vjust=-0.25) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill=FALSE)
+```
+
+# SUBSET TO ONLY RUNNERS WHO HAVE FINISHES FOR ALL 4 YEARS
+```{r}
+four_years = overall %>%
+  filter(!(is.na(FR) | is.na(SO) | is.na(JR) | is.na(SR))) %>%
+  #filter(GENDER == "M") %>%
+  mutate(
+    AVG_FINISH = (FR + SO + JR + SR) / 4
+  ) %>%
+  arrange(AVG_FINISH)
+```
+
+## PLOT OUT TOP RUNNERS BY AVG FINISH
+```{r}
+# Subset to only top 50
+top50 = four_years
+# Plot
+ggplot(top50, aes(reorder(NAME, AVG_FINISH), AVG_FINISH, fill = NAME)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle(label = "Best Average Finish - Men", subtitle = "Only runners who have 4 years at NCAAs") +
+  labs(x = "Runner", y = "Average Finish") +
+  geom_text(aes(label=AVG_FINISH), position=position_dodge(width=0.9), hjust = -0.05, angle = 90) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill=FALSE)
+```
+
+```{r}
+# Group to team level
+team_avg = four_years %>%
+  group_by(TEAM) %>%
+  summarise(AVG_FINISH = round(mean(AVG_FINISH), 2), NUM_RUNNERS = n_distinct(NAME)) %>%
+  filter(NUM_RUNNERS > 1)
+
+# Plot
+ggplot(team_avg, aes(reorder(TEAM, AVG_FINISH), AVG_FINISH, fill = TEAM)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle(label = "Best Average Finish - Team", subtitle = "Only teams with multiple runners") +
+  labs(x = "Team", y = "Average Finish") +
+  geom_text(aes(label=AVG_FINISH), position=position_dodge(width=0.9), hjust = -0.05, angle = 90) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  guides(fill=FALSE)
+
+```
+
 # DYNAMICALLY SCRAPE TFRRS LINKS
 ```{r}
-# TFRRS Results Page
-#url = "https://www.tfrrs.org/results_search.html"
-url = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
-
-# Read in the links on the webpage
-wp = read_html(url) %>% 
-  html_nodes(xpath = "//td/a") %>% 
-  html_attr("href")
-
-# Manipulate strings
-for ( i  in 1:length(wp) )
-{
-  temp = wp[i]
-  #temp = substring(temp, 3)
-  temp = paste0("https:", temp)
-  temp = substr(temp, 1, nchar(temp)-3)
-  wp[i] = temp
-}
+# # TFRRS Results Page
+# #url = "https://www.tfrrs.org/results_search.html"
+# url = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
+# 
+# # Read in the links on the webpage
+# wp = read_html(url) %>% 
+#   html_nodes(xpath = "//td/a") %>% 
+#   html_attr("href")
+# 
+# # Manipulate strings
+# for ( i  in 1:length(wp) )
+# {
+#   temp = wp[i]
+#   #temp = substring(temp, 3)
+#   temp = paste0("https:", temp)
+#   temp = substr(temp, 1, nchar(temp)-3)
+#   wp[i] = temp
+# }
 ```
 
 ```{r}
 # Attempt to read in first runner
-runner = read_html("https://www.tfrrs.org/athletes/5684073/Colorado/Dani_Jones.html") %>%
-  html_nodes("td") %>%
-  html_text()
-
-runner = gsub("[\t\n]", "", runner)
-runner = gsub("-", "", runner)
-runner = gsub("\\...", "", runner)
-runner = str_trim(runner, side = "both")
-
-runner = as.data.frame(runner)
+# runner = read_html("https://www.tfrrs.org/athletes/5684073/Colorado/Dani_Jones.html") %>%
+#   html_nodes("td") %>%
+#   html_text()
+# 
+# runner = gsub("[\t\n]", "", runner)
+# runner = gsub("-", "", runner)
+# runner = gsub("\\...", "", runner)
+# runner = str_trim(runner, side = "both")
+# 
+# runner = as.data.frame(runner)
 ```
 
 

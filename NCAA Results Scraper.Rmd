@@ -234,14 +234,6 @@ results_16 = results
 rm(results, wp, url)
 ```
 
-## 2015
-```{r}
-url = 'https://ncaaindoorchampionships.runnerspace.com/eprofile.php?do=info&year=2015&event_id=42'
-
-wp = read_html(url)
-```
-
-
 ## READ IN MANUALLY EDITED RESULTS
 ```{r}
 results_18 = read.csv("Indoor_Results_2018.csv")
@@ -249,7 +241,25 @@ results_18 = read.csv("Indoor_Results_2018.csv")
 
 ## ASSIGN POINTS FOR MANUALLY EDITED DATA
 ```{r}
+# Assign SCORE based on finish
+results_18 = results_18 %>%
+  mutate(
+    SCORE = case_when(
+      FINISH == 1 ~ 10,
+      FINISH == 2 ~ 8,
+      FINISH == 3 ~ 6,
+      FINISH == 4 ~ 5,
+      FINISH == 5 ~ 4, 
+      FINISH == 6 ~ 3,
+      FINISH == 7 ~ 2,
+      FINISH == 8 ~ 1,
+      T ~ 0
+    )
+  ) %>%
+  select(FINISH, NAME, TEAM, MARK, SCORE)
 
+# Rename columns
+names(results_18) = c("PL", "NAME", "TEAM", "MARK", "SCORE")
 ```
 
 # GROUP RESULTS DATA
