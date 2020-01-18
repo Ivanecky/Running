@@ -912,7 +912,37 @@ xc12 = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country
 runners_12 = getData(xc12)
 ```
 
+# Get D2 data
+```{r}
+# URL to scrape
+xc19 = 'https://www.tfrrs.org/results/xc/16713/NCAA_Division_II_Cross_Country_Championships'
+D2runners_19 = getData(xc19)
+# 2018
+xc18 = 'https://www.tfrrs.org/results/xc/15037/NCAA_Division_II_Cross_Country_Championships'
+D2runners_18 = getData(xc18)
+# 2017
+xc17 = 'https://www.tfrrs.org/results/xc/13406/NCAA_Division_II_Cross_Country_Championships'
+D2runners_17 = getData(xc17)
+# 2016
+xc16 = 'https://www.tfrrs.org/results/xc/11246/NCAA_Division_II_Cross_Country_Championships'
+D2runners_16 = getData(xc16)
+# 2015
+xc15 = 'https://www.tfrrs.org/results/xc/9348/NCAA_Division_II_Cross_Country_Championships'
+D2runners_15 = getData(xc15)
+# 2014
+xc14 = 'https://www.tfrrs.org/results/xc/7658/NCAA_Division_II_National_Championships'
+D2runners_14 = getData(xc14)
+# 2013
+xc13 = 'https://www.tfrrs.org/results/xc/6221/NCAA_Division_II_Cross_Country_Championships'
+D2runners_13 = getData(xc13)
+# 2012
+xc12 = 'https://www.tfrrs.org/results/xc/4796/2012_NCAA_Division_II_Cross_Country_Championships'
+D2runners_12 = getData(xc12)
+```
+
+
 ## Combine data & remove duplicated rows
+### D1
 ```{r}
 # Combine data
 runners = rbind(runners_18, runners_19, runners_12, runners_13, runners_14, runners_15, runners_16, runners_17)
@@ -920,6 +950,16 @@ runners = rbind(runners_18, runners_19, runners_12, runners_13, runners_14, runn
 # Remove duplicates
 runners = runners[!duplicated(runners), ]
 ```
+
+### D2
+```{r}
+# Combine data
+D2runners = rbind(D2runners_18, D2runners_19, D2runners_12, D2runners_13, D2runners_14, D2runners_15, D2runners_16, D2runners_17)
+
+# Remove duplicates
+D2runners = D2runners[!duplicated(D2runners), ]
+```
+
 
 ## Write to CSV
 ```{r}
