@@ -582,32 +582,38 @@ ggplot(results[which(results$GENDER == "M"), ], aes(NORM_TIME, fill = YEAR)) +
 ```
 
 # DYNAMICALLY SCRAPE TFRRS LINKS
-## SETUP MEET TO SCRAPE
+## getURLs
 ```{r}
 # TFRRS Results Page
 #url = "https://www.tfrrs.org/results_search.html"
-url = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
+#url = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
 
-# Read in the links on the webpage
-wp = read_html(url) %>%
-  html_nodes(xpath = "//td/div/a") %>%
-  html_attr("href")
+getURLs = function(url) {
+  # Read in the links on the webpage
+  wp = read_html(url) %>%
+    html_nodes(xpath = "//td/div/a") %>%
+    html_attr("href")
+  
+  # Manipulate strings
+  for ( i  in 1:length(wp) )
+  {
+    temp = wp[i]
+    #temp = substring(temp, 3)
+    temp = paste0("https:", temp)
+    temp = substr(temp, 1, nchar(temp)-3)
+    wp[i] = temp
+  }
+  
+  # Grab only strings for athletes
+  wp = wp[grepl("athletes", wp)]
+  
+  # Return webpage results
+  return(wp)
 
-# Manipulate strings
-for ( i  in 1:length(wp) )
-{
-  temp = wp[i]
-  #temp = substring(temp, 3)
-  temp = paste0("https:", temp)
-  temp = substr(temp, 1, nchar(temp)-3)
-  wp[i] = temp
 }
-
-# Grab only strings for athletes
-wp = wp[grepl("athletes", wp)]
 ```
 
-## FUNCTION TO SCRAPE INDIVIDUAL RUNNERS PAGE
+## runnerScrape Function
 ```{r}
 runnerScrape = function(url){
   # Attempt to read in first runner
@@ -704,149 +710,175 @@ runnerScrape = function(url){
 }
 ```
 
-## QUERY ALL ATHLETES
+## resultsQuery Function
 ```{r}
-# Create a temporary dataframe
-runners = as.data.frame(cbind("event", 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, "name"))
-# Rename columns
-names(runners) = c("EVENT", "AVG_PLACE", "AVG_TIME", "PR", "WINS", "TIMES.RUN", "WIN_PCT", "NAME")
-# Reformat var
-runners = runners %>%
-  mutate(
-    AVG_PLACE = as.numeric(AVG_PLACE),
-    AVG_TIME = as.numeric(AVG_TIME),
-    PR = as.numeric(PR),
-    WINS = as.numeric(WINS),
-    TIMES.RUN = as.numeric(TIMES.RUN),
-    WIN_PCT = as.numeric(WIN_PCT),
-  )
-
-# Loop through every person from the results
-for ( i in 1:length(wp) )
-{
-  # Set url to scrape
-  url = wp[i]
+# Create a function for results querying - takes in a list of webpage URLs from runnerScrape
+resultsQuery = function(wp){
+  # Create a temporary dataframe
+  runners = as.data.frame(cbind("event", 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, "name"))
+  # Rename columns
+  names(runners) = c("EVENT", "AVG_PLACE", "AVG_TIME", "PR", "WINS", "TIMES.RUN", "WIN_PCT", "NAME")
+  # Reformat var
+  runners = runners %>%
+    mutate(
+      AVG_PLACE = as.numeric(AVG_PLACE),
+      AVG_TIME = as.numeric(AVG_TIME),
+      PR = as.numeric(PR),
+      WINS = as.numeric(WINS),
+      TIMES.RUN = as.numeric(TIMES.RUN),
+      WIN_PCT = as.numeric(WIN_PCT),
+    )
   
-  # Make a temporary df for the runner
-  runner_temp = runnerScrape(url)
+  # Loop through every person from the results
+  for ( i in 1:length(wp) )
+  {
+    # Set url to scrape
+    url = wp[i]
+    
+    # Make a temporary df for the runner
+    runner_temp = runnerScrape(url)
+    
+    # Bind this to the runners df
+    runners = rbind(runners, runner_temp)
+  }
   
-  # Bind this to the runners df
-  runners = rbind(runners, runner_temp)
+  # Return data frame
+  return(runners)
 }
 ```
 
-### CONVERT TIMES TO READABLE FORMAT
+## reformatRunners
 ```{r}
-runners = runners %>%
+# Create function to convert times and transpose
+reformatRunners = function(df){
+  df = df %>%
+    mutate( # Create times that are readable for QC purposes
+      AVG_TIME_FORM = paste0(floor(AVG_TIME/60), ":", str_pad(round((AVG_TIME%%60), 2), width = 2, side = "left", pad = "0"))
+    ) %>%
+    mutate(
+      PR_FORM = paste0(floor(PR/60), ":", str_pad(round((PR%%60), 2), width = 2, side = "left", pad = "0"))
+    ) %>%
+    filter(!(EVENT %in% c("event", "OTHER"))) %>%
+    group_by(NAME) %>%
+    summarise( # Transpose data frame
+      # 800m
+      AVG_PLACE_800 = min(AVG_PLACE[EVENT == '800m']),
+      AVG_TIME_800 = min(AVG_TIME[EVENT == '800m']),
+      PR_800 = min(PR[EVENT == '800m']),
+      WINS_800 = min(WINS[EVENT == '800m']),
+      TIMES_RUN_800 = min(TIMES.RUN[EVENT == '800m']),
+      WIN_PCT_800 = min(WIN_PCT[EVENT == '800m']),
+      AVG_TIME_FORM_800 = min(AVG_TIME_FORM[EVENT == '800m']),
+      PR_FORM_800 = min(PR_FORM[EVENT == '800m']),
+      # 1500m
+      AVG_PLACE_1500 = min(AVG_PLACE[EVENT == '1500m']),
+      AVG_TIME_1500 = min(AVG_TIME[EVENT == '1500m']),
+      PR_1500 = min(PR[EVENT == '1500m']),
+      WINS_1500 = min(WINS[EVENT == '1500m']),
+      TIMES_RUN_1500 = min(TIMES.RUN[EVENT == '1500m']),
+      WIN_PCT_1500 = min(WIN_PCT[EVENT == '1500m']),
+      AVG_TIME_FORM_1500 = min(AVG_TIME_FORM[EVENT == '1500m']),
+      PR_FORM_1500 = min(PR_FORM[EVENT == '1500m']),
+      # Mile
+      AVG_PLACE_MILE = min(AVG_PLACE[EVENT == 'Mile']),
+      AVG_TIME_MILE = min(AVG_TIME[EVENT == 'Mile']),
+      PR_MILE = min(PR[EVENT == 'Mile']),
+      WINS_MILE = min(WINS[EVENT == 'Mile']),
+      TIMES_RUN_MILE = min(TIMES.RUN[EVENT == 'Mile']),
+      WIN_PCT_MILE = min(WIN_PCT[EVENT == 'Mile']),
+      AVG_TIME_FORM_MILE = min(AVG_TIME_FORM[EVENT == 'Mile']),
+      PR_FORM_MILE = min(PR_FORM[EVENT == 'Mile']),
+      # 3000m
+      AVG_PLACE_3000 = min(AVG_PLACE[EVENT == '3000m']),
+      AVG_TIME_3000 = min(AVG_TIME[EVENT == '3000m']),
+      PR_3000 = min(PR[EVENT == '3000m']),
+      WINS_3000 = min(WINS[EVENT == '3000m']),
+      TIMES_RUN_3000 = min(TIMES.RUN[EVENT == '3000m']),
+      WIN_PCT_3000 = min(WIN_PCT[EVENT == '3000m']),
+      AVG_TIME_FORM_3000 = min(AVG_TIME_FORM[EVENT == '3000m']),
+      PR_FORM_3000 = min(PR_FORM[EVENT == '3000m']),
+      # 3000mSC
+      AVG_PLACE_3000S = min(AVG_PLACE[EVENT == '3000S']),
+      AVG_TIME_3000S = min(AVG_TIME[EVENT == '3000S']),
+      PR_3000S = min(PR[EVENT == '3000S']),
+      WINS_3000S = min(WINS[EVENT == '3000S']),
+      TIMES_RUN_3000S = min(TIMES.RUN[EVENT == '3000S']),
+      WIN_PCT_3000S = min(WIN_PCT[EVENT == '3000S']),
+      AVG_TIME_FORM_3000S = min(AVG_TIME_FORM[EVENT == '3000S']),
+      PR_FORM_3000S = min(PR_FORM[EVENT == '3000S']),
+      # 5000m
+      AVG_PLACE_5000 = min(AVG_PLACE[EVENT == '5000m']),
+      AVG_TIME_5000 = min(AVG_TIME[EVENT == '5000m']),
+      PR_5000 = min(PR[EVENT == '5000m']),
+      WINS_5000 = min(WINS[EVENT == '5000m']),
+      TIMES_RUN_5000 = min(TIMES.RUN[EVENT == '5000m']),
+      WIN_PCT_5000 = min(WIN_PCT[EVENT == '5000m']),
+      AVG_TIME_FORM_5000 = min(AVG_TIME_FORM[EVENT == '5000m']),
+      PR_FORM_5000 = min(PR_FORM[EVENT == '5000m']),
+      # 6K XC
+      AVG_PLACE_6KXC = min(AVG_PLACE[EVENT == '6K XC']),
+      AVG_TIME_6KXC = min(AVG_TIME[EVENT == '6K XC']),
+      PR_6KXC = min(PR[EVENT == '6K XC']),
+      WINS_6KXC = min(WINS[EVENT == '6K XC']),
+      TIMES_RUN_6KXC = min(TIMES.RUN[EVENT == '6K XC']),
+      WIN_PCT_6KXC = min(WIN_PCT[EVENT == '6K XC']),
+      AVG_TIME_FORM_6KXC = min(AVG_TIME_FORM[EVENT == '6K XC']),
+      PR_FORM_6KXC = min(PR_FORM[EVENT == '6K XC']),
+      # 8K XC
+      AVG_PLACE_8KXC = min(AVG_PLACE[EVENT == '8K XC']),
+      AVG_TIME_8KXC = min(AVG_TIME[EVENT == '8K XC']),
+      PR_8KXC = min(PR[EVENT == '8K XC']),
+      WINS_8KXC = min(WINS[EVENT == '8K XC']),
+      TIMES_RUN_8KXC = min(TIMES.RUN[EVENT == '8K XC']),
+      WIN_PCT_8KXC = min(WIN_PCT[EVENT == '8K XC']),
+      AVG_TIME_FORM_8KXC = min(AVG_TIME_FORM[EVENT == '8K XC']),
+      PR_FORM_8KXC = min(PR_FORM[EVENT == '8K XC']),
+      # 10K
+      AVG_PLACE_10K = min(AVG_PLACE[EVENT == '10K']),
+      AVG_TIME_10K = min(AVG_TIME[EVENT == '10K']),
+      PR_10K = min(PR[EVENT == '10K']),
+      WINS_10K = min(WINS[EVENT == '10K']),
+      TIMES_RUN_10K = min(TIMES.RUN[EVENT == '10K']),
+      WIN_PCT_10K = min(WIN_PCT[EVENT == '10K']),
+      AVG_TIME_FORM_10K = min(AVG_TIME_FORM[EVENT == '10K']),
+      PR_FORM_10K = min(PR_FORM[EVENT == '10K']),
+    ) %>%
+  mutate_if(is.numeric, list(~na_if(., Inf))) # Replace Inf values created by runners not competing in an event
+  
+  # Return data frame
+  return(df)
+}
+```
+
+# TIE DATA TO XC RESULTS
+```{r}
+# Combine men and women from 2019
+xc19 = rbind(men_19, women_19)
+
+# Reformat name in XC19
+xc19 = separate(xc19, NAME, c("LAST", "FIRST"), sep = ", ")
+xc19 = xc19 %>%
   mutate(
-    AVG_TIME_FORM = paste0(floor(AVG_TIME/60), ":", round((AVG_TIME%%60), 2))
+    NAME = toupper(paste0(FIRST, " ", LAST))
   ) %>%
-  mutate(
-    PR_FORM = paste0(floor(PR/60), ":", round((PR%%60), 2))
-  ) %>%
-  filter(!(EVENT %in% c("event", "OTHER")))
+  select(NAME, TEAM, YEAR, TIME, PL)
+
+# Join runners info
+xc19 = xc19 %>%
+  left_join(runners, by = c("NAME"))
 ```
 
-### REFORMAT TO ONE ROW PER RUNNER
+# Get 2018 XC data
 ```{r}
-runners = runners %>%
-  group_by(NAME) %>%
-  summarise(
-    # 800m
-    AVG_PLACE_800 = min(AVG_PLACE[EVENT == '800m']),
-    AVG_TIME_800 = min(AVG_TIME[EVENT == '800m']),
-    PR_800 = min(PR[EVENT == '800m']),
-    WINS_800 = min(WINS[EVENT == '800m']),
-    TIMES_RUN_800 = min(TIMES.RUN[EVENT == '800m']),
-    WIN_PCT_800 = min(WIN_PCT[EVENT == '800m']),
-    AVG_TIME_FORM_800 = min(AVG_TIME_FORM[EVENT == '800m']),
-    PR_FORM_800 = min(PR_FORM[EVENT == '800m']),
-    # 1500m
-    AVG_PLACE_1500 = min(AVG_PLACE[EVENT == '1500m']),
-    AVG_TIME_1500 = min(AVG_TIME[EVENT == '1500m']),
-    PR_1500 = min(PR[EVENT == '1500m']),
-    WINS_1500 = min(WINS[EVENT == '1500m']),
-    TIMES_RUN_1500 = min(TIMES.RUN[EVENT == '1500m']),
-    WIN_PCT_1500 = min(WIN_PCT[EVENT == '1500m']),
-    AVG_TIME_FORM_1500 = min(AVG_TIME_FORM[EVENT == '1500m']),
-    PR_FORM_1500 = min(PR_FORM[EVENT == '1500m']),
-    # Mile
-    AVG_PLACE_MILE = min(AVG_PLACE[EVENT == 'Mile']),
-    AVG_TIME_MILE = min(AVG_TIME[EVENT == 'Mile']),
-    PR_MILE = min(PR[EVENT == 'Mile']),
-    WINS_MILE = min(WINS[EVENT == 'Mile']),
-    TIMES_RUN_MILE = min(TIMES.RUN[EVENT == 'Mile']),
-    WIN_PCT_MILE = min(WIN_PCT[EVENT == 'Mile']),
-    AVG_TIME_FORM_MILE = min(AVG_TIME_FORM[EVENT == 'Mile']),
-    PR_FORM_MILE = min(PR_FORM[EVENT == 'Mile']),
-    # 3000m
-    AVG_PLACE_3000 = min(AVG_PLACE[EVENT == '3000m']),
-    AVG_TIME_3000 = min(AVG_TIME[EVENT == '3000m']),
-    PR_3000 = min(PR[EVENT == '3000m']),
-    WINS_3000 = min(WINS[EVENT == '3000m']),
-    TIMES_RUN_3000 = min(TIMES.RUN[EVENT == '3000m']),
-    WIN_PCT_3000 = min(WIN_PCT[EVENT == '3000m']),
-    AVG_TIME_FORM_3000 = min(AVG_TIME_FORM[EVENT == '3000m']),
-    PR_FORM_3000 = min(PR_FORM[EVENT == '3000m']),
-    # 3000mSC
-    AVG_PLACE_3000S = min(AVG_PLACE[EVENT == '3000S']),
-    AVG_TIME_3000S = min(AVG_TIME[EVENT == '3000S']),
-    PR_3000S = min(PR[EVENT == '3000S']),
-    WINS_3000S = min(WINS[EVENT == '3000S']),
-    TIMES_RUN_3000S = min(TIMES.RUN[EVENT == '3000S']),
-    WIN_PCT_3000S = min(WIN_PCT[EVENT == '3000S']),
-    AVG_TIME_FORM_3000S = min(AVG_TIME_FORM[EVENT == '3000S']),
-    PR_FORM_3000S = min(PR_FORM[EVENT == '3000S']),
-    # 5000m
-    AVG_PLACE_5000 = min(AVG_PLACE[EVENT == '5000m']),
-    AVG_TIME_5000 = min(AVG_TIME[EVENT == '5000m']),
-    PR_5000 = min(PR[EVENT == '5000m']),
-    WINS_5000 = min(WINS[EVENT == '5000m']),
-    TIMES_RUN_5000 = min(TIMES.RUN[EVENT == '5000m']),
-    WIN_PCT_5000 = min(WIN_PCT[EVENT == '5000m']),
-    AVG_TIME_FORM_5000 = min(AVG_TIME_FORM[EVENT == '5000m']),
-    PR_FORM_5000 = min(PR_FORM[EVENT == '5000m']),
-    # 6K XC
-    AVG_PLACE_6KXC = min(AVG_PLACE[EVENT == '6K XC']),
-    AVG_TIME_6KXC = min(AVG_TIME[EVENT == '6K XC']),
-    PR_6KXC = min(PR[EVENT == '6K XC']),
-    WINS_6KXC = min(WINS[EVENT == '6K XC']),
-    TIMES_RUN_6KXC = min(TIMES.RUN[EVENT == '6K XC']),
-    WIN_PCT_6KXC = min(WIN_PCT[EVENT == '6K XC']),
-    AVG_TIME_FORM_6KXC = min(AVG_TIME_FORM[EVENT == '6K XC']),
-    PR_FORM_6KXC = min(PR_FORM[EVENT == '6K XC']),
-    # 8K XC
-    AVG_PLACE_8KXC = min(AVG_PLACE[EVENT == '8K XC']),
-    AVG_TIME_8KXC = min(AVG_TIME[EVENT == '8K XC']),
-    PR_8KXC = min(PR[EVENT == '8K XC']),
-    WINS_8KXC = min(WINS[EVENT == '8K XC']),
-    TIMES_RUN_8KXC = min(TIMES.RUN[EVENT == '8K XC']),
-    WIN_PCT_8KXC = min(WIN_PCT[EVENT == '8K XC']),
-    AVG_TIME_FORM_8KXC = min(AVG_TIME_FORM[EVENT == '8K XC']),
-    PR_FORM_8KXC = min(PR_FORM[EVENT == '8K XC']),
-    # 10K
-    AVG_PLACE_10K = min(AVG_PLACE[EVENT == '10K']),
-    AVG_TIME_10K = min(AVG_TIME[EVENT == '10K']),
-    PR_10K = min(PR[EVENT == '10K']),
-    WINS_10K = min(WINS[EVENT == '10K']),
-    TIMES_RUN_10K = min(TIMES.RUN[EVENT == '10K']),
-    WIN_PCT_10K = min(WIN_PCT[EVENT == '10K']),
-    AVG_TIME_FORM_10K = min(AVG_TIME_FORM[EVENT == '10K']),
-    PR_FORM_10K = min(PR_FORM[EVENT == '10K']),
-  )
+# URL to scrape
+xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships'
+# Get webpage URLs for runners
+xc18_wp = getURLs(xc18)
+# Query the runners results
+xc18_runners = resultsQuery(xc18_wp)
+# Reformat the data
+xc18_runners = reformatRunners(xc18_runners)
 ```
-
-### REPLACE INF VALUES WITH NA
-```{r}
-# Replace all the Inf for numeric columns only
-temp = runners %>%
-  mutate_if(is.numeric, list(~na_if(., Inf)))
-
-# Set runners to temp
-runners = temp
-```
-
-
 
 
 
