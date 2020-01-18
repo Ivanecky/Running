@@ -539,7 +539,6 @@ results = results %>%
 
 ```
 
-
 ## DISTRIBUTION OF FINISH BY YEAR BY GRADE
 ```{r}
 ggplot(results, aes(PL, fill = MEET_YR)) +
@@ -852,32 +851,79 @@ reformatRunners = function(df){
 
 # TIE DATA TO XC RESULTS
 ```{r}
-# Combine men and women from 2019
-xc19 = rbind(men_19, women_19)
-
-# Reformat name in XC19
-xc19 = separate(xc19, NAME, c("LAST", "FIRST"), sep = ", ")
-xc19 = xc19 %>%
-  mutate(
-    NAME = toupper(paste0(FIRST, " ", LAST))
-  ) %>%
-  select(NAME, TEAM, YEAR, TIME, PL)
-
-# Join runners info
-xc19 = xc19 %>%
-  left_join(runners, by = c("NAME"))
+# # Combine men and women from 2019
+# xc19 = rbind(men_19, women_19)
+# 
+# # Reformat name in XC19
+# xc19 = separate(xc19, NAME, c("LAST", "FIRST"), sep = ", ")
+# xc19 = xc19 %>%
+#   mutate(
+#     NAME = toupper(paste0(FIRST, " ", LAST))
+#   ) %>%
+#   select(NAME, TEAM, YEAR, TIME, PL)
+# 
+# # Join runners info
+# xc19 = xc19 %>%
+#   left_join(runners, by = c("NAME"))
 ```
 
-# Get 2018 XC data
+# Function to get data for URL
+```{r}
+getData = function(url){
+  # URL to scrape
+  meet_url = url
+  # Get webpage URLs for runners
+  meet_wp = getURLs(meet_url)
+  # Query the runners results
+  runners = resultsQuery(meet_wp)
+  # Reformat the data
+  runners = reformatRunners(runners)
+  
+  # Return final runners data frame
+  return(runners)
+}
+```
+
+# Get old XC data
 ```{r}
 # URL to scrape
+xc19 = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
+runners_19 = getData(xc19)
+# 2018
 xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships'
-# Get webpage URLs for runners
-xc18_wp = getURLs(xc18)
-# Query the runners results
-xc18_runners = resultsQuery(xc18_wp)
-# Reformat the data
-xc18_runners = reformatRunners(xc18_runners)
+runners_18 = getData(xc18)
+# 2017
+xc17 = 'https://www.tfrrs.org/results/xc/13423/NCAA_Division_I_Cross_Country_Championships'
+runners_17 = getData(xc17)
+# 2016
+xc16 = 'https://www.tfrrs.org/results/xc/11271/NCAA_Division_I_Cross_Country_Championships'
+runners_16 = getData(xc16)
+# 2015
+xc15 = 'https://www.tfrrs.org/results/xc/9347/NCAA_Division_I_Cross_Country_Championships'
+runners_15 = getData(xc15)
+# 2014
+xc14 = 'https://www.tfrrs.org/results/xc/7652/NCAA_Division_I_Cross_Country_Championships'
+runners_14 = getData(xc14)
+# 2013
+xc13 = 'https://www.tfrrs.org/results/xc/6218/NCAA_Division_I_Cross_Country_Championships'
+runners_13 = getData(xc13)
+# 2012
+xc12 = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
+runners_12 = getData(xc12)
+```
+
+## Combine data & remove duplicated rows
+```{r}
+# Combine data
+runners = rbind(runners_18, runners_19, runners_12, runners_13, runners_14, runners_15, runners_16, runners_17)
+
+# Remove duplicates
+runners = runners[!duplicated(runners), ]
+```
+
+## Write to CSV
+```{r}
+write.csv(runners, "Runner_Database.csv")
 ```
 
 
