@@ -583,14 +583,36 @@ ggplot(results[which(results$GENDER == "M"), ], aes(NORM_TIME, fill = YEAR)) +
 # DYNAMICALLY SCRAPE TFRRS LINKS
 ## getURLs
 ```{r}
-# TFRRS Results Page
-#url = "https://www.tfrrs.org/results_search.html"
-#url = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
-
-getURLs = function(url) {
+# Function for results URLs
+getResultsURLs = function(url) {
   # Read in the links on the webpage
   wp = read_html(url) %>%
     html_nodes(xpath = "//td/div/a") %>%
+    html_attr("href")
+  
+  # Manipulate strings
+  for ( i  in 1:length(wp) )
+  {
+    temp = wp[i]
+    #temp = substring(temp, 3)
+    temp = paste0("https:", temp)
+    temp = substr(temp, 1, nchar(temp)-3)
+    wp[i] = temp
+  }
+  
+  # Grab only strings for athletes
+  wp = wp[grepl("athletes", wp)]
+  
+  # Return webpage results
+  return(wp)
+
+}
+
+# Function for Performance Lists
+getPerfListURLs = function(url) {
+  # Read in the links on the webpage
+  wp = read_html(url) %>%
+    html_nodes(xpath = "//td/a") %>%
     html_attr("href")
   
   # Manipulate strings
@@ -661,49 +683,59 @@ runnerScrape = function(url){
   athlete = athlete %>%
     filter(grepl(":", TIME))
   
-  # Clean up and group to one row per event
-  athlete = athlete %>%
-    mutate(
-      EVENT = case_when(
-        grepl("5000|5K|5k", EVENT) & !(grepl("XC|xc|Xc", EVENT)) ~ "5000m",
-        grepl("3000|3K|3k", EVENT) & !grepl("3000S|3000mS|3000SC", EVENT) ~ "3000m",
-        grepl("mile|Mile|MILE", EVENT) ~ "Mile",
-        grepl("6K|6k|6000", EVENT) ~ "6K XC",
-        grepl("800|800m", EVENT) & !grepl("8000m|8000", EVENT) ~ "800m",
-        grepl("8k|8K|8000m", EVENT) & !grepl("\\.", EVENT) ~ "8K XC",
-        grepl("10,000|10K|10k|10000", EVENT) & !(grepl("XC|xc|Xc", EVENT)) ~ "10K",
-        grepl("10,000|10K|10k|10000", EVENT) & grepl("XC|xc|Xc", EVENT) ~ "10K XC",
-        grepl("1500|1500m", EVENT) & !grepl("4x", EVENT) ~ "1500m",
-        grepl("3000S|3000s|3000SC|3000sc|3000mS", EVENT) ~ "3000S",
-        T ~ "OTHER"
+  # Make sure athlete has rows (sprinters get removed)
+  if (nrow(athlete) > 0)
+  {
+    # Clean up and group to one row per event
+    athlete = athlete %>%
+      mutate(
+        EVENT = case_when(
+          grepl("5000|5K|5k", EVENT) & !(grepl("XC|xc|Xc", EVENT)) ~ "5000m",
+          grepl("3000|3K|3k", EVENT) & !grepl("3000S|3000mS|3000SC", EVENT) ~ "3000m",
+          grepl("mile|Mile|MILE", EVENT) ~ "Mile",
+          grepl("6K|6k|6000", EVENT) ~ "6K XC",
+          grepl("800|800m", EVENT) & !grepl("8000m|8000", EVENT) ~ "800m",
+          grepl("8k|8K|8000m", EVENT) & !grepl("\\.", EVENT) ~ "8K XC",
+          grepl("10,000|10K|10k|10000", EVENT) & !(grepl("XC|xc|Xc", EVENT)) ~ "10K",
+          grepl("10,000|10K|10k|10000", EVENT) & grepl("XC|xc|Xc", EVENT) ~ "10K XC",
+          grepl("1500|1500m", EVENT) & !grepl("4x", EVENT) ~ "1500m",
+          grepl("3000S|3000s|3000SC|3000sc|3000mS", EVENT) ~ "3000S",
+          T ~ "OTHER"
+        )
+      ) %>%
+      mutate(
+        PLACE = as.numeric(gsub("th|TH|st|ST|nd|ND|rd|RD", "", PLACE))
+      ) %>%
+      filter(!is.na(PLACE)) %>%
+      filter(PLACE <= 300) %>%
+      mutate(TIME = as.character(TIME)) %>%
+      mutate(
+        TIME = case_when(
+         nchar(TIME) == 8 | substr(TIME, 6, 6) == '.' ~ as.numeric(substr(TIME, 1, 2)) * 60 + as.numeric(substr(TIME, 4, 5)),
+         nchar(TIME) == 7 ~ as.numeric(substr(TIME, 1, 1)) * 60 + as.numeric(substr(TIME, 3, 4)),
+         T ~ 0
+        )
+      ) %>%
+      group_by(EVENT) %>%
+      summarise(
+        AVG_PLACE = round(mean(PLACE, na.rm = T), 2),
+        AVG_TIME = round(mean(TIME), 2),
+        PR = min(TIME),
+        WINS = n_distinct(TIME[PLACE == 1]),
+        TIMES.RUN = n()
+      ) %>%
+      mutate(
+        WIN_PCT = round(((WINS / TIMES.RUN) * 100), 2)
       )
-    ) %>%
-    mutate(
-      PLACE = as.numeric(gsub("th|TH|st|ST|nd|ND|rd|RD", "", PLACE))
-    ) %>%
-    filter(!is.na(PLACE)) %>%
-    filter(PLACE <= 300) %>%
-    mutate(TIME = as.character(TIME)) %>%
-    mutate(
-      TIME = case_when(
-       nchar(TIME) == 8 | substr(TIME, 6, 6) == '.' ~ as.numeric(substr(TIME, 1, 2)) * 60 + as.numeric(substr(TIME, 4, 5)),
-       nchar(TIME) == 7 ~ as.numeric(substr(TIME, 1, 1)) * 60 + as.numeric(substr(TIME, 3, 4)),
-       T ~ 0
-      )
-    ) %>%
-    group_by(EVENT) %>%
-    summarise(
-      AVG_PLACE = round(mean(PLACE, na.rm = T), 2),
-      AVG_TIME = round(mean(TIME), 2),
-      PR = min(TIME),
-      WINS = n_distinct(TIME[PLACE == 1]),
-      TIMES.RUN = n()
-    ) %>%
-    mutate(
-      WIN_PCT = round(((WINS / TIMES.RUN) * 100), 2)
-    )
-  
-  athlete$NAME = runner_name
+    
+    athlete$NAME = runner_name
+  }
+  # Handle when sprinters are included
+  else
+  {
+    athlete = as.data.frame(cbind("NULL", 0, 0, 0, 0, 0, 0, "NULL"))
+    names(athlete) = c("EVENT", "AVG_PLACE", "AVG_TIME", "PR", "WINS", "TIMES.RUN", "WIN_PCT", "NAME")
+  }
   
   return(athlete)
 }
@@ -867,13 +899,28 @@ reformatRunners = function(df){
 #   left_join(runners, by = c("NAME"))
 ```
 
-# Function to get data for URL
+# Functions to get data for URL
 ```{r}
-getData = function(url){
+# Meet results
+getResultsData = function(url){
   # URL to scrape
   meet_url = url
   # Get webpage URLs for runners
-  meet_wp = getURLs(meet_url)
+  meet_wp = getResultsURLs(meet_url)
+  # Query the runners results
+  runners = resultsQuery(meet_wp)
+  # Reformat the data
+  runners = reformatRunners(runners)
+  
+  # Return final runners data frame
+  return(runners)
+}
+# Performance lists
+getPerfListData = function(url){
+  # URL to scrape
+  meet_url = url
+  # Get webpage URLs for runners
+  meet_wp = getPerfListURLs(meet_url)
   # Query the runners results
   runners = resultsQuery(meet_wp)
   # Reformat the data
@@ -888,58 +935,74 @@ getData = function(url){
 ```{r}
 # URL to scrape
 xc19 = 'https://www.tfrrs.org/results/xc/16731/NCAA_Division_I_Cross_Country_Championships'
-runners_19 = getData(xc19)
+runners_19 = getResultsData(xc19)
 # 2018
 xc18 = 'https://www.tfrrs.org/results/xc/15036/NCAA_DI_Cross_Country_Championships'
-runners_18 = getData(xc18)
+runners_18 = getResultsData(xc18)
 # 2017
 xc17 = 'https://www.tfrrs.org/results/xc/13423/NCAA_Division_I_Cross_Country_Championships'
-runners_17 = getData(xc17)
+runners_17 = getResultsData(xc17)
 # 2016
 xc16 = 'https://www.tfrrs.org/results/xc/11271/NCAA_Division_I_Cross_Country_Championships'
-runners_16 = getData(xc16)
+runners_16 = getResultsData(xc16)
 # 2015
 xc15 = 'https://www.tfrrs.org/results/xc/9347/NCAA_Division_I_Cross_Country_Championships'
-runners_15 = getData(xc15)
+runners_15 = getResultsData(xc15)
 # 2014
 xc14 = 'https://www.tfrrs.org/results/xc/7652/NCAA_Division_I_Cross_Country_Championships'
-runners_14 = getData(xc14)
+runners_14 = getResultsData(xc14)
 # 2013
 xc13 = 'https://www.tfrrs.org/results/xc/6218/NCAA_Division_I_Cross_Country_Championships'
-runners_13 = getData(xc13)
+runners_13 = getResultsData(xc13)
 # 2012
 xc12 = 'https://www.tfrrs.org/results/xc/4797/2012_NCAA_Division_I_Cross_Country_Championships'
-runners_12 = getData(xc12)
+runners_12 = getResultsData(xc12)
 ```
 
 # Get D2 data
 ```{r}
 # URL to scrape
 xc19 = 'https://www.tfrrs.org/results/xc/16713/NCAA_Division_II_Cross_Country_Championships'
-D2runners_19 = getData(xc19)
+D2runners_19 = getResultsData(xc19)
 # 2018
 xc18 = 'https://www.tfrrs.org/results/xc/15037/NCAA_Division_II_Cross_Country_Championships'
-D2runners_18 = getData(xc18)
+D2runners_18 = getResultsData(xc18)
 # 2017
 xc17 = 'https://www.tfrrs.org/results/xc/13406/NCAA_Division_II_Cross_Country_Championships'
-D2runners_17 = getData(xc17)
+D2runners_17 = getResultsData(xc17)
 # 2016
 xc16 = 'https://www.tfrrs.org/results/xc/11246/NCAA_Division_II_Cross_Country_Championships'
-D2runners_16 = getData(xc16)
+D2runners_16 = getResultsData(xc16)
 # 2015
 xc15 = 'https://www.tfrrs.org/results/xc/9348/NCAA_Division_II_Cross_Country_Championships'
-D2runners_15 = getData(xc15)
+D2runners_15 = getResultsData(xc15)
 # 2014
 xc14 = 'https://www.tfrrs.org/results/xc/7658/NCAA_Division_II_National_Championships'
-D2runners_14 = getData(xc14)
+D2runners_14 = getResultsData(xc14)
 # 2013
 xc13 = 'https://www.tfrrs.org/results/xc/6221/NCAA_Division_II_Cross_Country_Championships'
-D2runners_13 = getData(xc13)
+D2runners_13 = getResultsData(xc13)
 # 2012
 xc12 = 'https://www.tfrrs.org/results/xc/4796/2012_NCAA_Division_II_Cross_Country_Championships'
-D2runners_12 = getData(xc12)
+D2runners_12 = getResultsData(xc12)
 ```
 
+## Grab Performance Lists for Indoors
+```{r}
+pl_D1 = getPerfListData('https://www.tfrrs.org/lists/2770/2019_2020_NCAA_Div._I_Indoor_Qualifying/2020/i')
+pl_D2 = getPerfListData('https://www.tfrrs.org/lists/2771/2019_2020_NCAA_Div._II_Indoor_Qualifying/2020/i')
+```
+
+### Testing to figure out errors
+```{r}
+# Get URLs
+d2_urls = getPerfListURLs('https://www.tfrrs.org/lists/2771/2019_2020_NCAA_Div._II_Indoor_Qualifying/2020/i') # Works
+# Runner query
+d2_runners_pl = resultsQuery(d2_urls) # Does not work
+
+temp = runnerScrape('https://www.tfrrs.org/athletes/6534402/CarsonNewman/Devon_Moore')
+
+```
 
 ## Combine data & remove duplicated rows
 ### D1
@@ -960,10 +1023,9 @@ D2runners = rbind(D2runners_18, D2runners_19, D2runners_12, D2runners_13, D2runn
 D2runners = D2runners[!duplicated(D2runners), ]
 ```
 
-
 ## Write to CSV
 ```{r}
-write.csv(runners, "Runner_Database.csv")
+write.csv(D2runners, "D2_Runner_Database.csv")
 ```
 
 
