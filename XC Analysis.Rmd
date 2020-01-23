@@ -784,10 +784,10 @@ resultsQuery = function(wp){
 reformatRunners = function(df){
   df = df %>%
     mutate( # Create times that are readable for QC purposes
-      AVG_TIME_FORM = paste0(floor(AVG_TIME/60), ":", str_pad(round((AVG_TIME%%60), 2), width = 2, side = "left", pad = "0"))
+      AVG_TIME_FORM = paste0(floor(AVG_TIME/60), ":", str_pad(floor(AVG_TIME%%60), 2), width = 2, side = "left", pad = "0")
     ) %>%
     mutate(
-      PR_FORM = paste0(floor(PR/60), ":", str_pad(round((PR%%60), 2), width = 2, side = "left", pad = "0"))
+      PR_FORM = paste0(floor(PR/60), ":", str_pad(floor(PR%%60), 2), width = 2, side = "left", pad = "0")
     ) %>%
     filter(!(EVENT %in% c("event", "OTHER"))) %>%
     group_by(NAME) %>%
